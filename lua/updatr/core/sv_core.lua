@@ -4,32 +4,65 @@ Updatr.RegisteredTables = Updatr.RegisteredTables or {}
 util.AddNetworkString("Updatr.TableUpdates")
 util.AddNetworkString("Updatr.TableData")
 
-function Updatr.RegisterTable(t)
+function Updatr.GetTableGlobalName(targetTable)
+    local seenTables = {}
+    local stack = {{_G, "_G"}}
+
+    while #stack > 0 do
+        local currentTable, currentTableName = unpack(table.remove(stack))
+
+        if currentTable == targetTable then
+            return string.sub(currentTableName, 4)  -- Remove the "_G." prefix
+        end
+
+        seenTables[currentTable] = true
+
+        for name, tbl in pairs(currentTable) do
+            if type(tbl) == "table" and not seenTables[tbl] then
+                table.insert(stack, {tbl, currentTableName .. "." .. name})
+            end
+        end
+    end
+
+    return nil
+end
+
+function Updatr.RegisterTable(t, ignoreList)
     local tableName = Updatr.GetTableGlobalName(t)
     if not tableName then
-        error("Table is not a global table")
+        error("Unable to register table, table is not a global table or cannot be found")
         return
     end
 
-    Updatr.RegisteredTables[tableName] = t
+    Updatr.RegisteredTables[tableName] = {table = t, ignoreList = ignoreList or {}}
     Updatr.DebugLog("Registered table " .. tableName)
 end
 
-function Updatr.GetUpdatedSubTables(newTable, oldTable)
+function Updatr.GetUpdatedSubTables(newTable, oldTable, ignoreList)
     local updates = {}
+    local tableName = Updatr.GetTableGlobalName(newTable)
+    if not tableName then
+        Updatr.DebugLog("Table is not a global table")
+        return
+    end
+    ignoreList = ignoreList or Updatr.RegisteredTables[tableName] and Updatr.RegisteredTables[tableName].ignoreList
 
     for key, value in pairs(newTable) do
-        if type(value) == "table" then
-            if oldTable[key] == nil then
-                updates[key] = value
-            else
-                local subUpdates = Updatr.GetUpdatedSubTables(value, oldTable[key])
-                if next(subUpdates) ~= nil then
-                    updates[key] = subUpdates
+        if ignoreList and ignoreList[key] then
+            continue
+        else
+            if type(value) == "table" then
+                if oldTable[key] == nil then
+                    updates[key] = value
+                else
+                    local subUpdates = Updatr.GetUpdatedSubTables(value, oldTable[key], tableName)
+                    if next(subUpdates) ~= nil then
+                        updates[key] = subUpdates
+                    end
                 end
+            elseif oldTable[key] ~= value then
+                updates[key] = value
             end
-        elseif oldTable[key] ~= value then
-            updates[key] = value
         end
     end
 
@@ -61,18 +94,6 @@ function Updatr.TableCompare(t1, t2)
     return true
 end
 
-function Updatr.GetTableGlobalName(t)
-    for k, v in pairs(_G) do
-        if v == t then
-            Updatr.DebugLog("Found table " .. k)
-            return k
-        end
-    end
-
-    Updatr.DebugLog("Table not found")
-    return nil
-end
-
 function Updatr.SendUpdates(newTable, oldTable)
     local tableName = Updatr.GetTableGlobalName(newTable)
     if not tableName then
@@ -80,9 +101,14 @@ function Updatr.SendUpdates(newTable, oldTable)
         return
     end
 
+    if not Updatr.RegisteredTables[tableName] then
+        Updatr.DebugLog("Table " .. tableName .. " is not registered")
+        return
+    end
+
     Updatr.DebugLog("Broadcasting updates for table " .. tableName)
 
-    local updates = Updatr.GetUpdatedSubTables(newTable, oldTable)
+    local updates = Updatr.GetUpdatedSubTables(newTable, oldTable, Updatr.RegisteredTables[tableName].ignoreList)
     local serializedUpdates = util.TableToJSON(updates)
     local compressedUpdates = util.Compress(serializedUpdates)
 
