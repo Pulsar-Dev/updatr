@@ -1,3 +1,23 @@
+local pairs = pairs
+local type = type
+local next = next
+local unpack = unpack
+local table_Copy = table.Copy
+local table_insert = table.insert
+local table_remove = table.remove
+local table_Count = table.Count
+local table_IsEmpty = table.IsEmpty
+local string_sub = string.sub
+local util_TableToJSON = util.TableToJSON
+local util_Compress = util.Compress
+local net_Start = net.Start
+local net_WriteString = net.WriteString
+local net_WriteUInt = net.WriteUInt
+local net_WriteData = net.WriteData
+local net_Send = net.Send
+local net_Broadcast = net.Broadcast
+local updatr_Debug = Updatr.DebugLog
+
 Updatr = Updatr or {}
 Updatr.RegisteredTables = Updatr.RegisteredTables or {}
 
@@ -9,17 +29,17 @@ function Updatr.GetTableGlobalName(targetTable)
     local stack = {{_G, "_G"}}
 
     while #stack > 0 do
-        local currentTable, currentTableName = unpack(table.remove(stack))
+        local currentTable, currentTableName = unpack(table_remove(stack))
 
         if currentTable == targetTable then
-            return string.sub(currentTableName, 4)  -- Remove the "_G." prefix
+            return string_sub(currentTableName, 4)  -- Remove the "_G." prefix
         end
 
         seenTables[currentTable] = true
 
         for name, tbl in pairs(currentTable) do
             if type(tbl) == "table" and not seenTables[tbl] then
-                table.insert(stack, {tbl, currentTableName .. "." .. name})
+                table_insert(stack, {tbl, currentTableName .. "." .. name})
             end
         end
     end
@@ -35,27 +55,28 @@ function Updatr.RegisterTable(t, ignoreList)
     end
 
     Updatr.RegisteredTables[tableName] = {table = t, ignoreList = ignoreList or {}}
-    Updatr.DebugLog("Registered table " .. tableName)
+    updatr_Debug("Registered table " .. tableName)
 end
 
-function Updatr.GetUpdatedSubTables(newTable, oldTable, ignoreList)
+function Updatr.GetUpdatedSubTables(newTable, oldTable, ignoreList, isSubTable)
     local updates = {}
     local tableName = Updatr.GetTableGlobalName(newTable)
-    if not tableName then
-        Updatr.DebugLog("Table is not a global table")
+    if not tableName and not isSubTable then
+        updatr_Debug("Table is not a global table")
         return
     end
+
     ignoreList = ignoreList or Updatr.RegisteredTables[tableName] and Updatr.RegisteredTables[tableName].ignoreList
 
     for key, value in pairs(newTable) do
-        if ignoreList and ignoreList[key] then
+        if ignoreList and ignoreList[tostring(key)] and type(key) ~= "number" then
             continue
         else
             if type(value) == "table" then
                 if oldTable[key] == nil then
                     updates[key] = value
                 else
-                    local subUpdates = Updatr.GetUpdatedSubTables(value, oldTable[key], tableName)
+                    local subUpdates = Updatr.GetUpdatedSubTables(value, oldTable[key], tableName, true)
                     if next(subUpdates) ~= nil then
                         updates[key] = subUpdates
                     end
@@ -66,7 +87,7 @@ function Updatr.GetUpdatedSubTables(newTable, oldTable, ignoreList)
         end
     end
 
-    Updatr.DebugLog("Found " .. table.Count(updates) .. " updates")
+    updatr_Debug("Found " .. table_Count(updates) .. " updates")
     return updates
 end
 
@@ -97,100 +118,66 @@ end
 function Updatr.SendUpdates(newTable, oldTable)
     local tableName = Updatr.GetTableGlobalName(newTable)
     if not tableName then
-        Updatr.DebugLog("Table is not a global table")
+        updatr_Debug("Table is not a global table")
         return
     end
 
     if not Updatr.RegisteredTables[tableName] then
-        Updatr.DebugLog("Table " .. tableName .. " is not registered")
+        updatr_Debug("Table " .. tableName .. " is not registered")
         return
     end
 
-    Updatr.DebugLog("Broadcasting updates for table " .. tableName)
+    updatr_Debug("Broadcasting updates for table " .. tableName)
 
     local updates = Updatr.GetUpdatedSubTables(newTable, oldTable, Updatr.RegisteredTables[tableName].ignoreList)
-    local serializedUpdates = util.TableToJSON(updates)
-    local compressedUpdates = util.Compress(serializedUpdates)
 
-    net.Start("Updatr.TableUpdates")
-    net.WriteString(tableName)
-    net.WriteUInt(#compressedUpdates, 32)
-    net.WriteData(compressedUpdates, #compressedUpdates)
-    net.Broadcast()
+    if not updates or table_IsEmpty(updates) then
+        updatr_Debug("No updates found, skipping broadcast")
+        return
+    end
 
-    Updatr.DebugLog("Broadcasted updates for table " .. tableName)
+    local serializedUpdates = util_TableToJSON(updates)
+    local compressedUpdates = util_Compress(serializedUpdates)
+
+    net_Start("Updatr.TableUpdates")
+    net_WriteString(tableName)
+    net_WriteUInt(#compressedUpdates, 32)
+    net_WriteData(compressedUpdates, #compressedUpdates)
+    net_Broadcast()
+
+    updatr_Debug("Broadcasted updates for table " .. tableName)
+end
+
+local function removeIgnoredKeys(t, ignoreList)
+    local ignoredTable = table_Copy(t)
+    for key, value in pairs(t) do
+        if ignoreList and ignoreList[key] then
+            ignoredTable[key] = nil
+        elseif type(value) == "table" then
+            removeIgnoredKeys(value, ignoreList)
+        end
+    end
+
+    return ignoredTable
 end
 
 function Updatr.SendTableToClient(ply, tableName, t)
-    local serializedTable = util.TableToJSON(t)
-    local compressedTable = util.Compress(serializedTable)
+    local ignoredTable = removeIgnoredKeys(t, Updatr.RegisteredTables[tableName].ignoreList)
+    local serializedTable = util_TableToJSON(ignoredTable)
+    local compressedTable = util_Compress(serializedTable)
 
-    Updatr.DebugLog("Sending table " .. tableName .. " to " .. ply:Nick())
+    updatr_Debug("Sending table " .. tableName .. " to " .. ply:Nick())
 
-    net.Start("Updatr.TableData")
-    net.WriteString(tableName)
-    net.WriteUInt(#compressedTable, 32)
-    net.WriteData(compressedTable, #compressedTable)
-    net.Send(ply)
+    net_Send("Updatr.TableData")
+    net_WriteString(tableName)
+    net_WriteUInt(#compressedTable, 32)
+    net_WriteData(compressedTable, #compressedTable)
+    net_Send(ply)
 end
 
 hook.Add("PlayerFullLoad", "Updatr.Test", function(ply)
-    Updatr.DebugLog("Sending all tables to " .. ply:Nick())
+    updatr_Debug("Sending all tables to " .. ply:Nick())
     for tableName, t in pairs(Updatr.RegisteredTables) do
-        Updatr.SendTableToClient(ply, tableName, t)
+        Updatr.SendTableToClient(ply, tableName, t.table)
     end
 end)
-
--- debug stuff
-
--- TestTable = {
---     test1 = {
---         data = "test1",
---         data2 = "test2"
---     },
---     test2 = {
---         data = {
---             test3 = "test3",
---             test4 = "test4"
---         },
---         data2 = {
---             test5 = "test5",
---             test6 = "test6"
---         },
---     },
---     test3 = {
---         data = {
---             test7 = {
---                 test8 = "test8",
---                 test9 = "test9"
---             },
---             test10 = {
---                 test11 = "test11",
---                 test12 = "test12"
---             },
---         },
---         data2 = {
---             test13 = {
---                 test14 = "test14",
---                 test15 = "test15"
---             },
---             test16 = {
---                 test17 = "test17",
---                 test18 = "test18"
---             },
---         },
---     },
--- }
-
--- Updatr.RegisteredTables = {}
--- Updatr.RegisterTable(TestTable)
-
--- for tableName, t in pairs(Updatr.RegisteredTables) do
---     Updatr.SendTableToClient(Entity(1), tableName, t)
--- end
-
--- local oldTable = table.Copy(TestTable)
--- TestTable.test1.data = "test1.1"
--- TestTable.test2.data.test3 = "test3.1"
-
--- Updatr.SendUpdates(TestTable, oldTable)

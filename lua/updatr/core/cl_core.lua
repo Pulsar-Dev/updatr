@@ -1,13 +1,26 @@
+local net_ReadString = net.ReadString
+local net_ReadUInt = net.ReadUInt
+local net_ReadData = net.ReadData
+local util_Decompress = util.Decompress
+local util_JSONToTable = util.JSONToTable
+local string_Explode = string.Explode
+
 Updatr = Updatr or {}
 
 net.Receive("Updatr.TableData", function(len)
-    local tableName = net.ReadString()
-    local dataLength = net.ReadUInt(32)
-    local compressedData = net.ReadData(dataLength)
-    local serializedTable = util.Decompress(compressedData)
-    local t = util.JSONToTable(serializedTable)
+    local tableName = net_ReadString()
+    local dataLength = net_ReadUInt(32)
+    local compressedData = net_ReadData(dataLength)
+    local serializedTable = util_Decompress(compressedData)
+    local t = util_JSONToTable(serializedTable)
 
-    _G[tableName] = t
+    local path = string_Explode(".", tableName)
+    local tableToUpdate = _G
+    for i = 1, #path - 1 do
+        tableToUpdate = tableToUpdate[path[i]]
+    end
+
+    tableToUpdate[path[#path]] = t
 end)
 
 function Updatr.ApplyUpdates(tbl, updates)
@@ -25,12 +38,17 @@ function Updatr.ApplyUpdates(tbl, updates)
 end
 
 net.Receive("Updatr.TableUpdates", function()
-    local tableName = net.ReadString()
-    local dataLength = net.ReadUInt(32)
-    local compressedData = net.ReadData(dataLength)
-    local serializedUpdates = util.Decompress(compressedData)
-    local updates = util.JSONToTable(serializedUpdates)
+    local tableName = net_ReadString()
+    local dataLength = net_ReadUInt(32)
+    local compressedData = net_ReadData(dataLength)
+    local serializedUpdates = util_Decompress(compressedData)
+    local updates = util_JSONToTable(serializedUpdates)
 
-    Updatr.ApplyUpdates(TestTable, updates)
-    print(tableName, "updated")
+    local path = string_Explode(".", tableName)
+    local tableToUpdate = _G
+    for i = 1, #path - 1 do
+        tableToUpdate = tableToUpdate[path[i]]
+    end
+
+    Updatr.ApplyUpdates(tableToUpdate[path[#path]], updates)
 end)
