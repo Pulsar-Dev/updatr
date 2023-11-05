@@ -7,7 +7,23 @@ local string_Explode = string.Explode
 
 Updatr = Updatr or {}
 
-net.Receive("Updatr.TableData", function(len)
+function Updatr.ApplyUpdates(tbl, updates)
+    for key, value in pairs(updates) do
+        if type(value) == "table" then
+            if not tbl[key] then
+                tbl[key] = value
+            else
+                Updatr.ApplyUpdates(tbl[key], value)
+            end
+        else
+            tbl[key] = value
+        end
+    end
+
+    Updatr.DebugLog("Applied updates to table")
+end
+
+net.Receive("Updatr.TableData", function()
     local tableName = net_ReadString()
     local dataLength = net_ReadUInt(32)
     local compressedData = net_ReadData(dataLength)
@@ -21,21 +37,11 @@ net.Receive("Updatr.TableData", function(len)
     end
 
     tableToUpdate[path[#path]] = t
+    Updatr.DebugLog("Received table data for " .. tableName)
+
+    hook.Run("Updatr.TableDataReceived", tableName)
 end)
 
-function Updatr.ApplyUpdates(tbl, updates)
-    for key, value in pairs(updates) do
-        if type(value) == "table" then
-            if not tbl[key] then
-                tbl[key] = value
-            else
-                Updatr.ApplyUpdates(tbl[key], value)
-            end
-        else
-            tbl[key] = value
-        end
-    end
-end
 
 net.Receive("Updatr.TableUpdates", function()
     local tableName = net_ReadString()
@@ -51,4 +57,6 @@ net.Receive("Updatr.TableUpdates", function()
     end
 
     Updatr.ApplyUpdates(tableToUpdate[path[#path]], updates)
+    Updatr.DebugLog("Received table updates for " .. tableName)
+    hook.Run("Updatr.TableUpdatesReceived", tableName)
 end)
