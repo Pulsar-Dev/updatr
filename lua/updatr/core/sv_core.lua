@@ -87,7 +87,11 @@ function Updatr.GetUpdatedSubTables(newTable, oldTable, ignoreList, isSubTable)
 		end
 	end
 
-	updatr_Debug("Found " .. table_Count(updates) .. " updates")
+	local updateCount = table_Count(updates)
+	if updateCount ~= 0 then
+		updatr_Debug("Found " .. updateCount .. " updates")
+	end
+
 	return updates
 end
 

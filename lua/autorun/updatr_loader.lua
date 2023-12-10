@@ -18,11 +18,14 @@ function Updatr.LoadDirectory(path)
         else
             if fileName:StartWith("cl_") then
                 AddCSLuaFile(filePath)
+                Updatr.DebugLog("Adding client file: " .. filePath)
             elseif fileName:StartWith("sh_") then
                 AddCSLuaFile(filePath)
                 include(filePath)
+                Updatr.DebugLog("Adding shared file: " .. filePath)
             else
                 include(filePath)
+                Updatr.DebugLog("Adding server file: " .. filePath)
             end
         end
     end
