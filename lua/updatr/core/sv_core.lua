@@ -71,19 +71,25 @@ function Updatr.GetUpdatedSubTables(newTable, oldTable, ignoreList, isSubTable)
 	for key, value in pairs(newTable) do
 		if ignoreList and ignoreList[tostring(key)] and type(key) ~= "number" then
 			continue
-		else
-			if type(value) == "table" then
-				if oldTable[key] == nil then
-					updates[key] = value
-				else
-					local subUpdates = Updatr.GetUpdatedSubTables(value, oldTable[key], tableName, true)
-					if next(subUpdates) ~= nil then
-						updates[key] = subUpdates
-					end
-				end
-			elseif oldTable[key] ~= value then
+		end
+
+		if type(value) == "table" then
+			if oldTable[key] == nil then
 				updates[key] = value
+			else
+				local subUpdates = Updatr.GetUpdatedSubTables(value, oldTable[key], tableName, true)
+				if next(subUpdates) ~= nil then
+					updates[key] = subUpdates
+				end
 			end
+		elseif oldTable[key] ~= value then
+			updates[key] = value
+		end
+	end
+
+	for key, value in pairs(oldTable) do
+		if newTable[key] == nil then
+			updates[key] = "Updatr.REMOVEDKEYVALUE"
 		end
 	end
 

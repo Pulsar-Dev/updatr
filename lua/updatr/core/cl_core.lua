@@ -9,7 +9,9 @@ Updatr = Updatr or {}
 
 function Updatr.ApplyUpdates(tbl, updates)
     for key, value in pairs(updates) do
-        if type(value) == "table" then
+        if value == "Updatr.REMOVEDKEYVALUE" then
+            tbl[key] = nil
+        elseif type(value) == "table" then
             if not tbl[key] then
                 tbl[key] = value
             else
@@ -22,7 +24,6 @@ function Updatr.ApplyUpdates(tbl, updates)
 
     Updatr.DebugLog("Applied updates to table")
 end
-
 net.Receive("Updatr.TableData", function()
     local tableName = net_ReadString()
     local dataLength = net_ReadUInt(32)
