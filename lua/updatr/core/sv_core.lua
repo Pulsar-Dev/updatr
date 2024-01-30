@@ -38,6 +38,7 @@ function Updatr.GetTableGlobalName(targetTable)
 		seenTables[currentTable] = true
 
 		for name, tbl in pairs(currentTable) do
+			if type(name) == "table" then continue end
 			if type(tbl) == "table" and not seenTables[tbl] then
 				table_insert(stack, {tbl, currentTableName .. "." .. name})
 			end

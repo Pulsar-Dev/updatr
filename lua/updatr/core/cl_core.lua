@@ -24,6 +24,7 @@ function Updatr.ApplyUpdates(tbl, updates)
 
     Updatr.DebugLog("Applied updates to table")
 end
+
 net.Receive("Updatr.TableData", function()
     local tableName = net_ReadString()
     local dataLength = net_ReadUInt(32)
