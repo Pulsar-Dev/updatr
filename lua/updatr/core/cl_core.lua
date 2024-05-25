@@ -12,6 +12,13 @@ function Updatr.ApplyUpdates(tbl, updates)
         if value == "Updatr.REMOVEDKEYVALUE" then
             tbl[key] = nil
         elseif type(value) == "table" then
+            if not tbl then
+                Updatr.DebugLog("Table is missing! This is bad! Updates:")
+                if PulsarLib.DevelopmentMode or Updatr.Debug then
+                    PrintTable(updates)
+                end
+            end
+
             if not tbl[key] then
                 tbl[key] = value
             else
@@ -40,6 +47,10 @@ net.Receive("Updatr.TableData", function()
 
     tableToUpdate[path[#path]] = t
     Updatr.DebugLog("Received table data for " .. tableName)
+    if PulsarLib.DevelopmentMode or Updatr.Debug then
+        Updatr.DebugLog("Updatr Table Debug: ")
+        PrintTable(tableToUpdate)
+    end
 
     hook.Run("Updatr.TableDataReceived", tableName)
 end)
@@ -60,5 +71,11 @@ net.Receive("Updatr.TableUpdates", function()
 
     Updatr.ApplyUpdates(tableToUpdate[path[#path]], updates)
     Updatr.DebugLog("Received table updates for " .. tableName)
+    if PulsarLib.DevelopmentMode or Updatr.Debug then
+        Updatr.DebugLog("Updatr Table Debug: ")
+        PrintTable(tableToUpdate)
+        Updatr.DebugLog("Path: " .. path .. " - " .. #path)
+    end
+
     hook.Run("Updatr.TableUpdatesReceived", tableName)
 end)
