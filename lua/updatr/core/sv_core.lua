@@ -26,13 +26,13 @@ util.AddNetworkString("Updatr.TableData")
 
 function Updatr.GetTableGlobalName(targetTable)
 	local seenTables = {}
-	local stack = {{_G, "_G"}}
+	local stack = { { _G, "_G" } }
 
 	while #stack > 0 do
 		local currentTable, currentTableName = unpack(table_remove(stack))
 
 		if currentTable == targetTable then
-			return string_sub(currentTableName, 4)  -- Remove the "_G." prefix
+			return string_sub(currentTableName, 4) -- Remove the "_G." prefix
 		end
 
 		seenTables[currentTable] = true
@@ -40,7 +40,7 @@ function Updatr.GetTableGlobalName(targetTable)
 		for name, tbl in pairs(currentTable) do
 			if type(name) == "table" then continue end
 			if type(tbl) == "table" and not seenTables[tbl] then
-				table_insert(stack, {tbl, currentTableName .. "." .. name})
+				table_insert(stack, { tbl, currentTableName .. "." .. name })
 			end
 		end
 	end
@@ -55,7 +55,7 @@ function Updatr.RegisterTable(t, ignoreList)
 		return
 	end
 
-	Updatr.RegisteredTables[tableName] = {table = t, ignoreList = ignoreList or {}}
+	Updatr.RegisteredTables[tableName] = { table = t, ignoreList = ignoreList or {} }
 	updatr_Debug("Registered table " .. tableName)
 end
 
@@ -190,19 +190,19 @@ function Updatr.SendTableToClient(ply, tableName, t)
 	net_Send(ply)
 end
 
-local load_queue = {}
+local loadQueue = {}
 
-hook.Add("PlayerInitialSpawn", "Updatr.PlayerLoad", function( ply )
-	load_queue[ply] = true
+hook.Add("PlayerInitialSpawn", "Updatr.PlayerLoad", function(ply)
+	loadQueue[ply] = true
 end)
 
 hook.Add("SetupMove", "Updatr.PlayerSetupMove", function(ply, _, cmd)
-	if load_queue[ply] and not cmd:IsForced() then
-		load_queue[ply] = nil
+	if not loadQueue[ply] then return end
+	if cmd:IsForced() then return end
+	loadQueue[ply] = nil
 
-		updatr_Debug("Sending all tables to " .. ply:Nick())
-		for tableName, t in pairs(Updatr.RegisteredTables) do
-			Updatr.SendTableToClient(ply, tableName, t.table)
-		end
+	updatr_Debug("Sending all tables to " .. ply:Nick())
+	for tableName, t in pairs(Updatr.RegisteredTables) do
+		Updatr.SendTableToClient(ply, tableName, t.table)
 	end
 end)

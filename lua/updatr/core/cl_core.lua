@@ -6,6 +6,7 @@ local util_JSONToTable = util.JSONToTable
 local string_Explode = string.Explode
 
 Updatr = Updatr or {}
+Updatr.RecievedData = Updatr.RecievedData or {}
 
 function Updatr.ApplyUpdates(tbl, updates)
     for key, value in pairs(updates) do
@@ -49,6 +50,7 @@ net.Receive("Updatr.TableData", function()
     Updatr.DebugLog("Received table data for " .. tableName)
 
     hook.Run("Updatr.TableDataReceived", tableName)
+    Updatr.RecievedData[tableName] = t
 end)
 
 
