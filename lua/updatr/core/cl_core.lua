@@ -47,10 +47,6 @@ net.Receive("Updatr.TableData", function()
 
     tableToUpdate[path[#path]] = t
     Updatr.DebugLog("Received table data for " .. tableName)
-    if PulsarLib.DevelopmentMode or Updatr.Debug then
-        Updatr.DebugLog("Updatr Table Debug: ")
-        PrintTable(tableToUpdate)
-    end
 
     hook.Run("Updatr.TableDataReceived", tableName)
 end)
@@ -74,7 +70,6 @@ net.Receive("Updatr.TableUpdates", function()
     if PulsarLib.DevelopmentMode or Updatr.Debug then
         Updatr.DebugLog("Updatr Table Debug: ")
         PrintTable(tableToUpdate)
-        Updatr.DebugLog("Path: " .. path .. " - " .. #path)
     end
 
     hook.Run("Updatr.TableUpdatesReceived", tableName)

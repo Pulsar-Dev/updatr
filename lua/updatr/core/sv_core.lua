@@ -179,6 +179,10 @@ function Updatr.SendTableToClient(ply, tableName, t)
 
 	updatr_Debug("Sending table " .. tableName .. " to " .. ply:Nick())
 
+	PrintTable(t)
+	print("--")
+	PrintTable(ignoredTable)
+
 	net_Start("Updatr.TableData")
 	net_WriteString(tableName)
 	net_WriteUInt(#compressedTable, 32)
