@@ -50,5 +50,5 @@ jobs:
       env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-          file: ./pulsarkv.gma
+          file: ./updatr.gma
           update_latest_release: true
