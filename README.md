@@ -1,5 +1,7 @@
 # Updatr
 
+# ⚠️ This project has been merged into [PulsarLib](https://github.com/Pulsar-Dev/pulsar-lib) and is no longer maintained here.
+
 ## Description
 Updatr is a gLua library that allows the server to send updates on large tables without resending the entire table over the network. It does this by sending the difference between the old table and the new table and then applying the difference on the client.
 
